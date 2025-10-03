@@ -55,12 +55,8 @@ async def handle_message(message, text: str):
         except ValueError:
             continue
 
-        # Match field to column (supports shorthands)
-        column_to_update = None
-        for key in COLUMN_MAPPING:
-            if field_input.startswith(key):
-                column_to_update = COLUMN_MAPPING[key]
-                break
+        column_to_update = COLUMN_MAPPING.get(field_input)
+        
         if column_to_update:
             updates[column_to_update] = value
 
