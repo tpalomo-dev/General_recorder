@@ -69,9 +69,9 @@ async def handle_message(message, text: str):
 
     # 2. Prepare timestamp and day
     tz = zoneinfo.ZoneInfo("America/Santiago")
-    now = datetime.datetime.now(tz)
+    now = datetime.datetime.now(tz).replace(tzinfo=None)
     today = now.date()
-
+    
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         # 3. Build upsert query dynamically
@@ -145,13 +145,3 @@ def read_root():
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy"}
-
-
-@app.get("/api/test-hf")
-async def test_hf():
-    try:
-        logger.info("Testing Hugging Face client")
-        return {"status": "hf_client_initialized", "provider": "fal-ai"}
-    except Exception as e:
-        logger.error(f"HF client test failed: {str(e)}")
-        return {"status": "error", "error": str(e)}
