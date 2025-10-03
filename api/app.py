@@ -89,9 +89,8 @@ async def handle_message(message, text: str):
             update_parts.append(f"{col} = EXCLUDED.{col}")
 
         # Increment fields
-        for idx, col in enumerate(updates_add.keys()):
-            # The placeholder index for this column in VALUES
-            update_parts.append(f"{col} = COALESCE({col}, 0) + EXCLUDED.{col}")
+        for col in updates_add.keys():
+            update_parts.append(f"{col} = COALESCE(General_track.{col}, 0) + EXCLUDED.{col}")
 
         update_clause = ", ".join(update_parts)
 
