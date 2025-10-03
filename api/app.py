@@ -37,10 +37,11 @@ COLUMN_MAPPING = {
 async def handle_message(message, text: str):
     """
     Handles a Telegram message updating daily stats.
-    Message can contain multiple fields: "s 1, sp 2, p 70"
+    Message can contain multiple fields: "s 1, sp 2, p 70, kcal 300"
     """
     # 1. Parse message into updates
-    updates = {}
+    updates_replace = {}  # Fields to replace
+    updates_add = {}      # Fields to increment
     parts = [p.strip() for p in text.split(",")]
 
     for part in parts:
@@ -56,25 +57,43 @@ async def handle_message(message, text: str):
             continue
 
         column_to_update = COLUMN_MAPPING.get(field_input)
-        
-        if column_to_update:
-            updates[column_to_update] = value
+        if not column_to_update:
+            continue
 
-    if not updates:
+        if column_to_update in {"Peso", "Suenho", "Suenho_profundo", "KM_Nad"}:
+            updates_replace[column_to_update] = value
+        else:  # KCal, Cerve, Copete
+            updates_add[column_to_update] = value
+
+    if not updates_replace and not updates_add:
         return JSONResponse({"status": "error", "message": "No valid fields found in message."})
 
     # 2. Prepare timestamp and day
     tz = zoneinfo.ZoneInfo("America/Santiago")
     now = datetime.datetime.now(tz).replace(tzinfo=None)
     today = now.date()
-    
+
     conn = await asyncpg.connect(DATABASE_URL)
     try:
-        # 3. Build upsert query dynamically
-        columns = ["day", "timestamp"] + list(updates.keys())
-        values_list = [today, now] + list(updates.values())
-        placeholders = ", ".join([f"${i+1}" for i in range(len(values_list))])
-        update_clause = ", ".join([f"{col} = EXCLUDED.{col}" for col in updates.keys()])
+        # 3. Build UPSERT query dynamically
+        columns = ["day", "timestamp"] + list(updates_replace.keys()) + list(updates_add.keys())
+        values_list = [today, now] + list(updates_replace.values()) + list(updates_add.values())
+
+        placeholders = ", ".join(f"${i+1}" for i in range(len(values_list)))
+
+        # Build the ON CONFLICT clause
+        update_parts = []
+
+        # Replace fields
+        for col in updates_replace.keys():
+            update_parts.append(f"{col} = EXCLUDED.{col}")
+
+        # Increment fields
+        for idx, col in enumerate(updates_add.keys()):
+            # The placeholder index for this column in VALUES
+            update_parts.append(f"{col} = COALESCE({col}, 0) + EXCLUDED.{col}")
+
+        update_clause = ", ".join(update_parts)
 
         query = f"""
             INSERT INTO General_track ({', '.join(columns)})
@@ -86,7 +105,7 @@ async def handle_message(message, text: str):
         await conn.execute(query, *values_list)
 
         # 4. Send confirmation via Telegram
-        update_str = ", ".join([f"{k}={v}" for k, v in updates.items()])
+        update_str = ", ".join([f"{k}={v}" for k, v in {**updates_replace, **updates_add}.items()])
         async with aiohttp.ClientSession() as session:
             await session.post(
                 f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
