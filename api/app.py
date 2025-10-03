@@ -5,6 +5,7 @@ import aiohttp
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 import logging
+import os
 
 # Logging
 logging.basicConfig(
@@ -15,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-DATABASE_URL = "your_database_url"
-TELEGRAM_TOKEN = "your_telegram_bot_token"
+# Environment variables
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Map shorthands and full names to table columns
 COLUMN_MAPPING = {
